@@ -150,11 +150,30 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
     return res.status(200).json(new ApiResponse(200,video,"publish status toggled successfully"))
 })
 
+const getUserVideos = asyncHandler(async (req, res) => {
+    const userId = req.user?._id;
+
+    if (!userId || !isValidObjectId(userId)) {
+        throw new ApiError(401, "Unauthorized or invalid user id");
+    }
+
+    const videos = await Video.find({ owner: userId });
+
+    if (videos.length === 0) {
+        throw new ApiError(404, "No videos found for this user");
+    }
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, videos, "Videos fetched successfully"));
+});
+
 export {
     getAllVideos,
     publishAVideo,
     getVideoById,
     updateVideo,
     deleteVideo,
-    togglePublishStatus
+    togglePublishStatus,
+    getUserVideos
 }
