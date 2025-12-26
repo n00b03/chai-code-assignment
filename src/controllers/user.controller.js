@@ -4,7 +4,7 @@ import { User} from "../models/user.model.js"
 import {uploadOnCloudinary} from "../utils/cloudinary.js"
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken"
-import mongoose from "mongoose";
+import mongoose, { isValidObjectId } from "mongoose";
 
 
 const generateAccessAndRefereshTokens = async(userId) =>{
@@ -251,13 +251,67 @@ const changeCurrentPassword = asyncHandler(async(req, res) => {
 })
 
 const getCurrentUser = asyncHandler(async(req, res) => {
+    const userId = req.user._id
+
+    if (!isValidObjectId(userId)) {
+        throw new ApiError(400, "username is missing")
+    }
+
+    const user = await User.aggregate([
+        {
+            $match: {
+                _id : new mongoose.Types.ObjectId(userId)
+            }
+        },
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "channel",
+                as: "subscribers"
+            }
+        },
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "subscriber",
+                as: "subscribedTo"
+            }
+        },
+        {
+            $addFields: {
+                subscribersCount: {
+                    $size: "$subscribers"
+                },
+                channelsSubscribedToCount: {
+                    $size: "$subscribedTo"
+                }
+            }
+        },
+        {
+            $project: {
+                fullName: 1,
+                username: 1,
+                subscribersCount: 1,
+                channelsSubscribedToCount: 1,
+                avatar: 1,
+                coverImage: 1,
+                email: 1
+
+            }
+        }
+    ])
+
+    if (!user?.length) {
+        throw new ApiError(404, "channel does not exists")
+    }
+
     return res
     .status(200)
-    .json(new ApiResponse(
-        200,
-        req.user,
-        "User fetched successfully"
-    ))
+    .json(
+        new ApiResponse(200, user[0], "User channel fetched successfully")
+    )
 })
 
 const updateAccountDetails = asyncHandler(async(req, res) => {
