@@ -7,15 +7,24 @@ import {asyncHandler} from "../utils/asyncHandler.js"
 import {uploadOnCloudinary , cloudDelete } from "../utils/cloudinary.js"
 
 const getAllVideos = asyncHandler(async (req, res) => {
-    const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query
-    //TODO: get all videos based on query, sort, pagination
-    const videos = await Video.find({});
+    let { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query;
+
+    page = parseInt(page);
+    limit = parseInt(limit);
+
+    const skip = (page - 1) * limit;
+
+    const filterVideos = {};
+
+    const videos = await Video.find(filterVideos).skip(skip).limit(limit);
+
+    const totalVideos = await Video.countDocuments(filterVideos);
 
     if(!videos){
         throw new ApiError(400,"unable to fetch videos")
     }
 
-    return res.status(200).json(new ApiResponse(200,videos,"fetching successful"))
+    return res.status(200).json(new ApiResponse(200,{videos , totalVideos,currentPage : page , totalpages : Math.ceil(totalVideos/limit)},"fetching successful"))
 })
 
 const publishAVideo = asyncHandler(async (req, res) => {
